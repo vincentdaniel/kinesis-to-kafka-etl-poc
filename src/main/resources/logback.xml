@@ -1,0 +1,21 @@
+<configuration
+        xmlns="http://ch.qos.logback/xml/ns/logback"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://ch.qos.logback/xml/ns/logback">
+
+    <appender name="MAIN" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%-10thread] %-5level %-36logger{36}:%-4L %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.apache.kafka" level="warn"/>
+    <logger name="org.reflections" level="warn"/>
+    <logger name="io.netty" level="warn"/>
+    <logger name="software.amazon" level="info"/>
+
+    <root level="DEBUG">
+        <appender-ref ref="MAIN"/>
+    </root>
+
+</configuration>
