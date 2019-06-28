@@ -40,7 +40,7 @@ class KinesisToKafkaETL : Runnable, Serializable {
     var kinesisStreamName: String? = System.getenv("KINESIS_STREAM")
 
     @Option(names = ["--kinesis-endpoint"], paramLabel = "LOCAL_MODE")
-    var localMode: Boolean = System.getenv("LOCAL_MODE")?.toBoolean() ?: true
+    var localMode: Boolean = System.getenv("LOCAL_MODE")?.toBoolean() ?: false
 
     @Option(names = ["--kinesis-region"], paramLabel = "KINESIS_REGION")
     var kinesisRegion: String? = System.getenv("KINESIS_REGION") ?: "us-east-1"
@@ -52,11 +52,10 @@ class KinesisToKafkaETL : Runnable, Serializable {
     var kafkaBootstrapServers: String? = System.getenv("KAFKA_BOOTSTRAP_SERVERS")
 
     @Option(
-        names = ["--kafka-topics"],
-        paramLabel = "KAFKA_TOPICS",
-        description = ["List of topics where to send the messages to.", "Expected format: click:click-topic,conversion:conversion-topic,impression:impression-topic"]
+        names = ["--kafka-topic"],
+        paramLabel = "KAFKA_TOPIC"
     )
-    var kafkaTopics: String? = System.getenv("KAFKA_TOPICS")
+    var kafkaTopic: String? = System.getenv("KAFKA_TOPIC")
 
     override fun run() {
         if (helpRequested) {
@@ -67,10 +66,8 @@ class KinesisToKafkaETL : Runnable, Serializable {
         val randomUUID = UUID.randomUUID()
         val workerID = "KinesisToKafkaETL:$randomUUID"
 
-        val kafkaTopicsMap = parseTopics(kafkaTopics)
-
-        if (kafkaTopicsMap.isEmpty()) {
-            logger.error("Kafka topics should be provided")
+        if (kafkaTopic.isNullOrBlank()) {
+            logger.error("Kafka topic should be provided")
             CommandLine(this).usage(System.err)
             exitProcess(1)
         }
@@ -115,7 +112,7 @@ class KinesisToKafkaETL : Runnable, Serializable {
         val configsBuilder = ConfigsBuilder(
             kinesisStreamName!!, kinesisAppName!!, kinesisClient, dynamoClient,
             cloudWatchClient, workerID,
-            ShardProcessorFactory(kafkaProducer, kafkaTopicsMap)
+            ShardProcessorFactory(kafkaProducer, kafkaTopic!!)
         )
 
         val scheduler = Scheduler(

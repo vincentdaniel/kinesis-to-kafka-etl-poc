@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
 
 class ShardsRecordProcessor(
     val kafkaProducer: KafkaProducer<String, String>,
-    val kafkaTopics: Map<String, String>,
+    val kafkaTopic: String,
     val objectMapper: ObjectMapper
 ) : ShardRecordProcessor {
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -68,9 +68,15 @@ class ShardsRecordProcessor(
 
     override fun processRecords(processRecordsInput: ProcessRecordsInput) {
         try {
-            logger.info("Processing ${processRecordsInput.records().size} records from $shardId - latency = ${Duration.ofMillis(processRecordsInput.millisBehindLatest()).prettyPrint()}")
-            processRecordsInput.records().forEach { record -> processSingleRecord(record) }
-            logger.info("Checkpoint - latency = ${Duration.ofMillis(processRecordsInput.millisBehindLatest()).prettyPrint()}")
+            if (processRecordsInput.records().isNotEmpty()) {
+                logger.info(
+                    "Processing ${processRecordsInput.records().size} records from $shardId - latency = ${Duration.ofMillis(
+                        processRecordsInput.millisBehindLatest()
+                    ).prettyPrint()}"
+                )
+                processRecordsInput.records().forEach { record -> processSingleRecord(record) }
+                logger.info("Checkpoint - latency = ${Duration.ofMillis(processRecordsInput.millisBehindLatest()).prettyPrint()}")
+            }
             processRecordsInput.checkpointer().checkpoint()
         } catch (t: Throwable) {
             logger.error("Caught throwable while processing records. Aborting")
@@ -84,17 +90,10 @@ class ShardsRecordProcessor(
 
             logger.debug(data)
             try {
-                val action = objectMapper.readTree(data)["action"].asText()
-                logger.debug("action = $action")
-                val topic = kafkaTopics[action]
-                logger.debug("topic = $topic")
-                if (topic != null) {
-                    logger.debug("Pushing record with action $action to kafka topic $topic: $data")
-                    kafkaProducer.send(ProducerRecord<String, String>(topic, UUID.randomUUID().toString(), data))
-                        .get(1, TimeUnit.SECONDS)
-                } else {
-                    logger.debug("Ignoring record with action $action: $data")
-                }
+                logger.debug("Pushing record to kafka topic $kafkaTopic: $data")
+                kafkaProducer.send(ProducerRecord<String, String>(kafkaTopic, UUID.randomUUID().toString(), data))
+                    .get(1, TimeUnit.SECONDS)
+
             } catch (e: IOException) {
                 logger.warn("Unable to parse data: $data", e)
             }
@@ -124,7 +123,7 @@ class ShardsRecordProcessor(
 
 class ShardProcessorFactory(
     private val kafkaProducer: KafkaProducer<String, String>,
-    private val kafkaTopics: Map<String, String>
+    private val kafkaTopic: String
 ) : ShardRecordProcessorFactory {
 
     private val objectMapper = ObjectMapper()
@@ -141,6 +140,6 @@ class ShardProcessorFactory(
 
 
     override fun shardRecordProcessor(): ShardRecordProcessor {
-        return ShardsRecordProcessor(kafkaProducer, kafkaTopics, objectMapper)
+        return ShardsRecordProcessor(kafkaProducer, kafkaTopic, objectMapper)
     }
 }
