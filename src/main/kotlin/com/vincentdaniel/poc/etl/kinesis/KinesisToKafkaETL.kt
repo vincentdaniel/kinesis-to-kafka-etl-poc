@@ -18,6 +18,7 @@ import software.amazon.kinesis.common.InitialPositionInStreamExtended
 import software.amazon.kinesis.coordinator.Scheduler
 import software.amazon.kinesis.retrieval.polling.PollingConfig
 import java.io.Serializable
+import java.net.URI
 import java.util.*
 import kotlin.system.exitProcess
 
@@ -38,11 +39,14 @@ class KinesisToKafkaETL : Runnable, Serializable {
     @Option(names = ["--kinesis-stream"], paramLabel = "KINESIS_STREAM")
     var kinesisStreamName: String? = System.getenv("KINESIS_STREAM")
 
+    @Option(names = ["--kinesis-endpoint"], paramLabel = "LOCAL_MODE")
+    var localMode: Boolean = System.getenv("LOCAL_MODE")?.toBoolean() ?: true
+
     @Option(names = ["--kinesis-region"], paramLabel = "KINESIS_REGION")
     var kinesisRegion: String? = System.getenv("KINESIS_REGION") ?: "us-east-1"
 
     @Option(names = ["--kinesis-app"], paramLabel = "KINESIS_APP")
-    var kinesisAppName: String? = System.getenv("KINESIS_APP")
+    var kinesisAppName: String? = System.getenv("KINESIS_APP") ?: "KinesisToKafka"
 
     @Option(names = ["--kafka-bootstrap-servers"], paramLabel = "KAFKA_BOOTSTRAP_SERVERS")
     var kafkaBootstrapServers: String? = System.getenv("KAFKA_BOOTSTRAP_SERVERS")
@@ -84,14 +88,29 @@ class KinesisToKafkaETL : Runnable, Serializable {
         val kinesisClient = KinesisAsyncClient.builder()
             .credentialsProvider(awsCredentials)
             .region(Region.of(kinesisRegion))
+            .also {
+                if (localMode) {
+                    it.endpointOverride(URI.create("http://localhost:4568"))
+                }
+            }
             .build()
         val dynamoClient = DynamoDbAsyncClient.builder()
             .credentialsProvider(awsCredentials)
             .region(Region.of(kinesisRegion))
+            .also {
+                if (localMode) {
+                    it.endpointOverride(URI.create("http://localhost:4569"))
+                }
+            }
             .build()
         val cloudWatchClient = CloudWatchAsyncClient.builder()
             .credentialsProvider(awsCredentials)
             .region(Region.of(kinesisRegion))
+            .also {
+                if (localMode) {
+                    it.endpointOverride(URI.create("http://localhost:4586"))
+                }
+            }
             .build()
         val configsBuilder = ConfigsBuilder(
             kinesisStreamName!!, kinesisAppName!!, kinesisClient, dynamoClient,

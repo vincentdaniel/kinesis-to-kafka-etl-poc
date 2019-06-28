@@ -15,3 +15,29 @@ services:
       KAFKA_ADVERTISED_HOST_NAME: localhost
       KAFKA_CREATE_TOPICS: "type1:1:1,type2:1:1,type3:1:1"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181/kafka
+  localstack:
+    image: localstack/localstack:0.9.5
+    ports:
+      - "8081:8080"
+      - "4568-4576:4568-4576"
+    environment:
+      SERVICES: kinesis:4568,dynamodb:4569,cloudwatch:4582
+      DATA_DIR: /tmp/localstack/data
+      DEFAULT_REGION: us-east-1
+      HOSTNAME: localhost
+  setup-resources:
+    image: mesosphere/aws-cli:1.14.5
+    environment:
+      - AWS_ACCESS_KEY_ID=foo
+      - AWS_SECRET_ACCESS_KEY=bar
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_CBOR_DISABLE=true
+    entrypoint: /bin/sh -c
+    command: >
+      "
+        # Needed so all localstack components will startup correctly (i'm sure there's a better way to do this)
+        sleep 10;
+        aws kinesis create-stream --endpoint-url=http://localstack:4568 --stream-name kinesis-local-stream --shard-count 1;
+      "
+    depends_on:
+      - localstack

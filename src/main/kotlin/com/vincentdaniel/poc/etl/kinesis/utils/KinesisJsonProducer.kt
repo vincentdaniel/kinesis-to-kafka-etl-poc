@@ -1,5 +1,6 @@
 package com.vincentdaniel.poc.etl.kinesis.utils
 
+import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.services.kinesis.AmazonKinesisClientBuilder
 import com.amazonaws.services.kinesis.model.PutRecordRequest
 import java.nio.ByteBuffer
@@ -16,9 +17,14 @@ aws_secret_access_key=YYYYYY
 object KinesisJsonProducer {
     @JvmStatic
     fun main(args: Array<String>) {
-        val streamName = "kinesis-test-stream"
+        System.setProperty("com.amazonaws.sdk.disableCbor", "true")
+        val streamName = "kinesis-local-stream"
 
-        val kinesisClient = AmazonKinesisClientBuilder.defaultClient()
+        val kinesisClient = AmazonKinesisClientBuilder.standard()
+            .also {
+                it.setEndpointConfiguration(AwsClientBuilder.EndpointConfiguration("http://localhost:4568", "us-east-1"))
+            }
+            .build()
         repeat(10) {
             val uuid = UUID.randomUUID().toString()
             val jsonLines = listOf(
